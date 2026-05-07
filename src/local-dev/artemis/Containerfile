@@ -1,0 +1,39 @@
+FROM registry.redhat.io/amq7/amq-broker-rhel9:7.13
+
+USER root
+
+RUN mkdir -p /certs
+
+# --- Pre-create broker instance at build time ---
+RUN /opt/amq/bin/artemis create /home/jboss/amq-broker \
+    --user admin --password admin --role admin \
+    --require-login --allow-anonymous \
+    --http-host 0.0.0.0 --host 0.0.0.0 \
+    --name amq-broker \
+    --no-fsync --mapped
+
+# --- Override with SWIM provider configuration ---
+COPY --chown=185:0 src/local-dev/artemis/broker.xml                  /home/jboss/amq-broker/etc/broker.xml
+COPY --chown=185:0 src/local-dev/artemis/login.config                /home/jboss/amq-broker/etc/login.config
+COPY --chown=185:0 src/local-dev/artemis/_keycloak-login-module.json /home/jboss/amq-broker/etc/_keycloak-login-module.json
+COPY --chown=185:0 src/local-dev/artemis/artemis-roles.properties    /home/jboss/amq-broker/etc/artemis-roles.properties
+COPY --chown=185:0 src/local-dev/artemis/bootstrap.xml               /home/jboss/amq-broker/etc/bootstrap.xml
+COPY --chown=185:0 src/local-dev/artemis/jolokia-access.xml          /home/jboss/amq-broker/etc/jolokia-access.xml
+
+# --- Import mkcert CA into the JVM truststore so BearerTokenLoginModule can
+#     validate Keycloak's HTTPS certificate (keycloak.swim.lab) ---
+COPY certs/ca.crt /tmp/swim-ca.crt
+RUN keytool -importcert -noprompt \
+    -alias swim-local-ca \
+    -file  /tmp/swim-ca.crt \
+    -cacerts \
+    -storepass changeit && \
+    rm /tmp/swim-ca.crt
+
+RUN chown -R 185:0 /certs /home/jboss/amq-broker && \
+    chmod -R g=u   /certs /home/jboss/amq-broker
+
+USER 185
+WORKDIR /home/jboss/amq-broker
+
+CMD ["/home/jboss/amq-broker/bin/artemis", "run"]
