@@ -101,7 +101,7 @@
 
         <dependency>
             <groupId>com.github.swim-developer</groupId>
-            <artifactId>fixm-ffice-model</artifactId>
+            <artifactId>swim-fixm-ffice-model</artifactId>
             <version>1.0.0-SNAPSHOT</version>
         </dependency>
 
