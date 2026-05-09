@@ -2,7 +2,6 @@ package com.github.swim_developer.ffice.provider.infrastructure.out.subscription
 
 import com.github.swim_developer.framework.domain.model.ActiveSubscriptionInfo;
 import com.github.swim_developer.framework.application.port.out.ActiveSubscriptionSupplier;
-import com.github.swim_developer.ffice.provider.domain.model.Subscription;
 import com.github.swim_developer.ffice.provider.infrastructure.out.persistence.JpaSubscriptionStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
