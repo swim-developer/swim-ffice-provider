@@ -1,9 +1,9 @@
 package com.github.swim_developer.unit;
 
 import aero.fixm.ffice.FficeMessageType;
-import aero.fixm.ffice.validation.FficeUnmarshallerPool;
 import com.github.swim_developer.ffice.provider.domain.model.FilterableEvent;
 import com.github.swim_developer.ffice.provider.infrastructure.out.xml.EventExtractor;
+import com.github.swim_developer.ffice.provider.infrastructure.out.xml.JaxbUnmarshallerPool;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,12 +18,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class EventExtractorTest {
 
-    private static FficeUnmarshallerPool pool;
+    private static JaxbUnmarshallerPool pool;
     private EventExtractor extractor;
 
     @BeforeAll
     static void initPool() {
-        pool = new FficeUnmarshallerPool();
+        pool = new JaxbUnmarshallerPool();
     }
 
     @BeforeEach
@@ -32,7 +32,7 @@ class EventExtractorTest {
     }
 
     private FilterableEvent extractFirst(String xml) throws Exception {
-        FficeMessageType parsed = (FficeMessageType) pool.unmarshalAndValidate(xml);
+        FficeMessageType parsed = pool.unmarshalAndValidate(xml);
         List<Optional<FilterableEvent>> results = extractor.extract(parsed);
         assertThat(results).isNotEmpty();
         assertThat(results.getFirst()).isPresent();

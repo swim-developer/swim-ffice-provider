@@ -6,8 +6,8 @@ import com.github.swim_developer.ffice.provider.domain.model.StoredEvent;
 import com.github.swim_developer.ffice.provider.infrastructure.out.messaging.OutboxEventProcessor;
 import com.github.swim_developer.ffice.provider.infrastructure.out.persistence.ProviderEventStore;
 import com.github.swim_developer.ffice.provider.infrastructure.out.xml.EventExtractor;
-import com.github.swim_developer.ffice.provider.infrastructure.out.xml.JaxbUnmarshallerPool;
 import com.github.swim_developer.framework.application.port.in.SwimIngressHandler;
+import com.github.swim_developer.framework.application.port.out.SwimXmlUnmarshallerPort;
 import com.github.swim_developer.framework.domain.exception.XmlValidationException;
 import com.github.swim_developer.framework.domain.model.EventStatus;
 import com.github.swim_developer.framework.infrastructure.out.cache.HandoffCache;
@@ -39,7 +39,7 @@ public class IngressMessageHandler implements SwimIngressHandler {
 
     private final ProviderEventStore eventRepository;
     private final EventExtractor eventExtractor;
-    private final JaxbUnmarshallerPool jaxbPool;
+    private final SwimXmlUnmarshallerPort<FficeMessageType> jaxbPool;
     private final HandoffCache handoffCache;
     private final Vertx vertx;
     private final MeterRegistry registry;
@@ -48,7 +48,7 @@ public class IngressMessageHandler implements SwimIngressHandler {
     @Inject
     public IngressMessageHandler(ProviderEventStore eventRepository,
                                  EventExtractor eventExtractor,
-                                 JaxbUnmarshallerPool jaxbPool,
+                                 SwimXmlUnmarshallerPort<FficeMessageType> jaxbPool,
                                  HandoffCache handoffCache,
                                  Vertx vertx,
                                  MeterRegistry registry,

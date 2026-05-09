@@ -4,7 +4,6 @@ import aero.fixm.ffice.FficeMessageType;
 import aero.fixm.ffice.validation.FficeUnmarshallerPool;
 import com.github.swim_developer.framework.application.port.out.SwimXmlUnmarshallerPort;
 import com.github.swim_developer.framework.domain.exception.XmlValidationException;
-import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import lombok.extern.slf4j.Slf4j;
 
@@ -12,10 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 @ApplicationScoped
 public class JaxbUnmarshallerPool implements SwimXmlUnmarshallerPort<FficeMessageType> {
 
-    private FficeUnmarshallerPool pool;
+    private final FficeUnmarshallerPool pool;
 
-    @PostConstruct
-    void initialize() {
+    public JaxbUnmarshallerPool() {
         this.pool = new FficeUnmarshallerPool();
         log.info("FF-ICE JAXB unmarshaller pool initialized from fixm-ffice-model");
     }

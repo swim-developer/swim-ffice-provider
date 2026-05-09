@@ -6,7 +6,7 @@ import com.github.swim_developer.ffice.provider.domain.model.StoredEvent;
 import com.github.swim_developer.ffice.provider.infrastructure.in.amqp.IngressMessageHandler;
 import com.github.swim_developer.ffice.provider.infrastructure.out.persistence.ProviderEventStore;
 import com.github.swim_developer.ffice.provider.infrastructure.out.xml.EventExtractor;
-import com.github.swim_developer.ffice.provider.infrastructure.out.xml.JaxbUnmarshallerPool;
+import com.github.swim_developer.framework.application.port.out.SwimXmlUnmarshallerPort;
 import com.github.swim_developer.framework.domain.exception.XmlValidationException;
 import com.github.swim_developer.framework.infrastructure.out.cache.HandoffCache;
 import com.github.swim_developer.framework.infrastructure.testing.TestNameLoggerExtension;
@@ -41,7 +41,7 @@ class FficeEventProcessorTest {
     private ProviderEventStore eventRepository;
 
     @Mock
-    private JaxbUnmarshallerPool jaxbPool;
+    private SwimXmlUnmarshallerPort<FficeMessageType> jaxbPool;
 
     @Mock
     private EventExtractor eventExtractor;
