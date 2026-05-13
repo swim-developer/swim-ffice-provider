@@ -52,20 +52,11 @@ Use `make sync` to clone/pull and install all of them automatically.
 Hexagonal Architecture (Ports & Adapters) based on *Designing Hexagonal Architecture with Java* by Davi Vieira.
 
 ```
-domain/model/           — Domain entities (Subscription, StoredEvent, FilterableEvent, FailedDelivery)
-application/port/in/    — Inbound ports (ManageSubscriptionPort, DeliverEventPort, QueryEventPort)
-application/port/out/   — Outbound ports (SubscriptionStore, EventStore, MessageAssemblerPort, etc.)
-application/usecase/    — Use cases (SubscriptionUseCase, EventDeliveryUseCase, EventQueryUseCase)
-infrastructure/in/      — Inbound adapters
-  amqp/                 — Kafka consumer (IngressMessageHandler — implements SwimIngressHandler from framework)
-  rest/                 — JAX-RS resources (SubscriptionCollectionResource, SubscriptionItemResource, TopicResource, FeatureResource)
-  internal/             — Internal HTTP server (health, management endpoints on separate port)
-infrastructure/out/     — Outbound adapters
-  persistence/          — JPA/Panache stores (ProviderEventStore, JpaSubscriptionStore)
-  amqp/                 — AMQP publisher to Artemis subscriber queues
-  xml/                  — JAXB unmarshalling pool, EventExtractor, MessageAssembler
-  subscription/         — Subscription lifecycle adapters (heartbeat, expiry, hash, active-supplier)
-  messaging/            — OutboxEventProcessor (Vert.x event bus for async delivery after TX commit)
+domain/model/           — Domain entities
+application/port/       — Inbound and outbound port interfaces
+application/usecase/    — Use case implementations
+infrastructure/in/      — Inbound adapters (Kafka ingress, JAX-RS REST, internal HTTP)
+infrastructure/out/     — Outbound adapters (JPA persistence, AMQP publisher, JAXB/XML, subscription lifecycle, outbox messaging)
 ```
 
 Use cases extend abstract base classes from `swim-framework-provider` (e.g., `AbstractProviderSubscriptionService`, `AbstractEventDeliveryService`). The framework provides the template methods; this project fills in the FF-ICE-specific implementations.
@@ -79,11 +70,4 @@ Use cases extend abstract base classes from `swim-framework-provider` (e.g., `Ab
 
 ## Coding Standards
 
-- **Logging**: Always use `@Slf4j` (Lombok). Never `LoggerFactory.getLogger()`.
-- **No inner classes**: Every class in its own file.
-- **Max 400 lines per file** (except .md files).
-- **No comments in code**.
-- **No Java Reflection** — not in production, not in tests.
 - **Tests**: Use RestAssured for HTTP requests, AssertJ for assertions. Integration tests use Testcontainers (PostgreSQL, Artemis, Kafka).
-- **Never delete or disable code to make tests pass** — investigate and fix properly.
-- **Never take design decisions autonomously** — always ask before executing.
