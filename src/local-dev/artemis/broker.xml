@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<configuration xmlns="urn:activemq" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:schemaLocation="urn:activemq /schema/artemis-configuration.xsd">
+    <core xmlns="urn:activemq:core"
+          xsi:schemaLocation="urn:activemq:core ">
+
+        <name>amq-broker</name>
+        <persistence-enabled>true</persistence-enabled>
+        <journal-type>NIO</journal-type>
+
+        <paging-directory>data/paging</paging-directory>
+        <bindings-directory>data/bindings</bindings-directory>
+        <journal-directory>data/journal</journal-directory>
+        <large-messages-directory>data/large-messages</large-messages-directory>
+
+        <acceptors>
+            <acceptor name="amqp">tcp://0.0.0.0:5672?protocols=AMQP,CORE;amqpCredits=1000;amqpLowCredits=300;amqpDuplicateDetection=true</acceptor>
+
+            <acceptor name="amqps">tcp://0.0.0.0:5671?protocols=AMQP;sslEnabled=true;keyStorePath=/certs/broker.p12;keyStorePassword=changeit;keyStoreType=PKCS12;trustStorePath=/certs/ca-truststore.p12;trustStorePassword=changeit;trustStoreType=PKCS12;needClientAuth=true</acceptor>
+        </acceptors>
+
+        <security-settings>
+            <security-setting match="#">
+                <permission type="createDurableQueue"    roles="admin"/>
+                <permission type="deleteDurableQueue"    roles="admin"/>
+                <permission type="createNonDurableQueue" roles="admin"/>
+                <permission type="deleteNonDurableQueue" roles="admin"/>
+                <permission type="createAddress"         roles="admin"/>
+                <permission type="deleteAddress"         roles="admin"/>
+                <permission type="consume"               roles="admin"/>
+                <permission type="browse"                roles="admin"/>
+                <permission type="send"                  roles="admin"/>
+                <permission type="manage"                roles="admin"/>
+            </security-setting>
+        </security-settings>
+
+        <address-settings>
+            <address-setting match="#">
+                <dead-letter-address>DLQ</dead-letter-address>
+                <expiry-address>ExpiryQueue</expiry-address>
+                <expiry-delay>86400000</expiry-delay>
+                <redelivery-delay>0</redelivery-delay>
+                <max-size-bytes>512M</max-size-bytes>
+                <message-counter-history-day-limit>10</message-counter-history-day-limit>
+                <address-full-policy>PAGE</address-full-policy>
+                <auto-create-queues>true</auto-create-queues>
+                <auto-create-addresses>true</auto-create-addresses>
+                <auto-delete-queues>true</auto-delete-queues>
+                <auto-delete-addresses>true</auto-delete-addresses>
+            </address-setting>
+        </address-settings>
+
+        <addresses>
+            <address name="DLQ">
+                <anycast>
+                    <queue name="DLQ"/>
+                </anycast>
+            </address>
+            <address name="ExpiryQueue">
+                <anycast>
+                    <queue name="ExpiryQueue"/>
+                </anycast>
+            </address>
+        </addresses>
+
+        <broker-plugins>
+            <broker-plugin class-name="com.github.swim_developer.artemis.plugin.ACKMonitorPlugin"/>
+        </broker-plugins>
+    </core>
+</configuration>

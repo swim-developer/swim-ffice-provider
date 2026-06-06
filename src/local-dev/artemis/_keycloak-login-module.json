@@ -1,0 +1,9 @@
+{
+  "realm": "swim",
+  "auth-server-url": "https://keycloak.swim.lab:8543/",
+  "ssl-required": "external",
+  "resource": "amq-broker",
+  "bearer-only": true,
+  "verify-token-audience": true,
+  "use-resource-role-mappings": true
+}

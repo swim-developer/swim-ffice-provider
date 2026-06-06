@@ -1,0 +1,234 @@
+services:
+
+  provider-artemis:
+    build:
+      context: .
+      dockerfile: src/local-dev/artemis/Containerfile
+    image: ffice-provider-artemis-local:latest
+    container_name: ffice-provider-artemis
+    depends_on:
+      keycloak:
+        condition: service_started
+    extra_hosts:
+      - "keycloak.swim.lab:host-gateway"
+    ports:
+      - "5671:5671"
+      - "5672:5672"
+      - "8161:8161"
+    volumes:
+      - ./certs/broker.p12:/certs/broker.p12:ro,Z
+      - ./certs/ca-truststore.p12:/certs/ca-truststore.p12:ro,Z
+      - ./src/local-dev/add-ons/activemq-log-plugin.jar:/home/jboss/amq-broker/lib/activemq-log-plugin.jar:ro,Z
+      - provider-artemis-data:/home/jboss/amq-broker/data
+    networks:
+      - swim-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8161/console/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  provider-postgres:
+    image: docker.io/library/postgres:17
+    container_name: ffice-provider-postgres
+    environment:
+      POSTGRES_DB: swim-ffice
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - provider-postgres-data:/var/lib/postgresql/data
+    networks:
+      - swim-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  kafka:
+    image: docker.io/apache/kafka:4.1.2
+    hostname: kafka
+    container_name: ffice-provider-kafka
+    ports:
+      - "9092:9092"
+    networks:
+      - swim-network
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: FFICE_PROVIDER_LOCAL
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: false
+
+  kafka-init:
+    image: docker.io/apache/kafka:4.1.2
+    container_name: ffice-provider-kafka-init
+    depends_on:
+      - kafka
+    networks:
+      - swim-network
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo 'Waiting for Kafka...'
+        until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --list > /dev/null 2>&1; do sleep 2; done
+        echo 'Creating FF-ICE provider topics...'
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists \
+          --topic ffice-events-all-topic --partitions 10 --replication-factor 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists \
+          --topic ffice-events-dlq-topic --partitions 1 --replication-factor 1
+        echo 'Done.'
+
+  akhq:
+    image: docker.io/tchiotludo/akhq:latest
+    container_name: ffice-provider-akhq
+    ports:
+      - "9090:8080"
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            ffice-provider:
+              properties:
+                bootstrap.servers: "kafka:29092"
+    networks:
+      - swim-network
+    depends_on:
+      - kafka
+
+  keycloak-postgres:
+    image: docker.io/library/postgres:17
+    container_name: ffice-keycloak-postgres
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - keycloak-postgres-data:/var/lib/postgresql/data
+    networks:
+      - swim-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: registry.redhat.io/rhbk/keycloak-rhel9:26.4-10
+    container_name: ffice-keycloak
+    hostname: keycloak
+    depends_on:
+      keycloak-postgres:
+        condition: service_healthy
+    ports:
+      - "8543:8443"
+    networks:
+      swim-network:
+        aliases:
+          - keycloak.swim.lab
+    command: start-dev --import-realm --verbose
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: password
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: password
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "false"
+      KC_HOSTNAME: "https://keycloak.swim.lab:8543"
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "true"
+      KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/certs/keystore.p12
+      KC_HTTPS_KEY_STORE_PASSWORD: changeit
+      SWIM_ROLE_TARGET_CLIENT: amq-broker
+      SWIM_ROLE_SUFFIXES: "-swim-ffice-v1-amq-role"
+    volumes:
+      - ./src/local-dev/keycloak:/opt/keycloak/data/import:ro,Z
+      - ./src/local-dev/add-ons/keycloak-swim-role-spi.jar:/opt/keycloak/providers/keycloak-swim-role-spi.jar:ro,Z
+      - ./certs/keycloak-keystore.p12:/opt/keycloak/certs/keystore.p12:ro,Z
+
+  ffice-provider-validator:
+    image: quay.io/masales/swim-ffice-provider-validator:latest
+    pull_policy: always
+    container_name: ffice-provider-validator
+    ports:
+      - "8085:8080"
+    environment:
+      SWIM_PROVIDER_API_URLS: "https://host.containers.internal:8443"
+      SWIM_PROVIDER_AMQP_HOST: "ffice-provider-artemis"
+      SWIM_PROVIDER_AMQP_PORT: "5671"
+      KEYCLOAK_URL: "https://keycloak.swim.lab:8543"
+      KEYCLOAK_REALM: "swim"
+      KEYCLOAK_CLIENT_ID: "swim-public-client"
+      PROXY_MTLS_KEYSTORE_PATH: "/certs/validator/keystore.p12"
+      PROXY_MTLS_KEYSTORE_PASSWORD: "changeit"
+      PROXY_MTLS_KEYSTORE_TYPE: "PKCS12"
+      PROXY_MTLS_TRUSTSTORE_PATH: "/certs/validator/truststore.p12"
+      PROXY_MTLS_TRUSTSTORE_PASSWORD: "changeit"
+      PROXY_MTLS_TRUSTSTORE_TYPE: "PKCS12"
+      MARIADB_HOST: "ffice-provider-validator-db"
+      MARIADB_PORT: "3306"
+      MARIADB_DATABASE: "swim_client"
+      MARIADB_USERNAME: "swim"
+      MARIADB_PASSWORD: "swim"
+    volumes:
+      - ./certs/validator-keystore.p12:/certs/validator/keystore.p12:ro,Z
+      - ./certs/validator-truststore.p12:/certs/validator/truststore.p12:ro,Z
+    extra_hosts:
+      - "keycloak.swim.lab:host-gateway"
+    depends_on:
+      ffice-provider-validator-db:
+        condition: service_healthy
+      provider-artemis:
+        condition: service_healthy
+    networks:
+      - swim-network
+
+  ffice-provider-validator-db:
+    image: docker.io/library/mariadb:12-ubi
+    container_name: ffice-provider-validator-db
+    ports:
+      - "3308:3306"
+    environment:
+      MARIADB_DATABASE: swim_client
+      MARIADB_USER: swim
+      MARIADB_PASSWORD: swim
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - ffice-provider-validator-db-data:/var/lib/mysql
+    networks:
+      - swim-network
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  provider-artemis-data:
+  provider-postgres-data:
+  keycloak-postgres-data:
+  ffice-provider-validator-db-data:
+
+networks:
+  swim-network:
+    name: swim-ffice-provider-network
+    driver: bridge

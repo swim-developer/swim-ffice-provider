@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<restrict>
+  <!--
+    Local dev only — allow all origins including null (Java HttpClient has no browser context).
+    AmqpQueueProvisioner calls Jolokia via java.net.http.HttpClient which sends no Origin header.
+    Jolokia treats a missing Origin as "null" and rejects it under strict CORS unless explicitly allowed.
+    The Jolokia port (8161) is not exposed outside localhost so this is safe for local development.
+  -->
+  <cors>
+    <allow-origin>*</allow-origin>
+    <allow-origin>null</allow-origin>
+  </cors>
+</restrict>
